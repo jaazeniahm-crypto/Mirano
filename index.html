@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VitalTrack | Personal Health Assistant</title>
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --med-red: #dc2626;
+            --bg-light: #f8fafc;
+            --card-white: #ffffff;
+            --text-dark: #1e293b;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            margin: 0;
+            padding-bottom: 50px;
+        }
+
+        header {
+            background-color: var(--primary-blue);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .card {
+            background: var(--card-white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h2 { font-size: 1.2rem; margin-top: 0; color: var(--primary-blue); display: flex; align-items: center; gap: 8px; }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        .result-box {
+            margin-top: 15px;
+            padding: 10px;
+            background: #e0f2fe;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .med-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 10px;
+            margin-top: 5px;
+            border-radius: 8px;
+            background: #f1f5f9;
+        }
+
+        .med-item.ringing {
+            background: #fef08a; /* Yellow highlight when alarm goes off */
+            border: 2px solid #eab308;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .emergency {
+            background: #fee2e2;
+            border: 2px solid var(--med-red);
+        }
+
+        .emergency h2 { color: var(--med-red); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>➕ VitalTrack</h1>
+    <p>Your Health Matters</p>
+</header>
+
+<div class="container">
+
+    <div class="card">
+        <h2>⚖️ BMI Calculator</h2>
+        <input type="number" id="weight" placeholder="Weight (kg)">
+        <input type="number" id="height" placeholder="Height (cm)">
+        <button onclick="calculateBMI()">Calculate BMI</button>
+        <div id="bmiResult" class="result-box" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+        <h2>💊 Medication Reminder</h2>
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="medName" placeholder="Medicine Name...">
+            <input type="time" id="medTime" style="width: 150px;">
+        </div>
+        <button onclick="addMedication()">Add Medicine & Set Alarm</button>
+        <div id="medList"></div>
+    </div>
+
+    <div class="card">
+        <h2>📝 Symptom Journal</h2>
+        <textarea id="symptomInput" placeholder="Describe how you feel (e.g., Headache, 3pm)..."></textarea>
+        <button onclick="saveSymptom()">Log Symptom</button>
+        <div id="symptomLog" style="margin-top: 15px; font-size: 0.9rem;"></div>
+    </div>
+
+    <div class="card emergency">
+        <h2>🚨 Emergency Contact</h2>
+        <p><strong>Doctor:</strong> Dr. Mirano (+1 555-0123)</p>
+        <button style="background: var(--med-red);" onclick="window.location.href='tel:911'">CALL EMERGENCY</button>
+    </div>
+
+</div>
+
+<audio id="alarmSound" loop>
+    <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    // Global array to track meds
+    let medications = [];
+    const alarmSound = document.getElementById('alarmSound');
+
+    // BMI Logic
+    function calculateBMI() {
+        const w = document.getElementById('weight').value;
+        const h = document.getElementById('height').value / 100;
+        const resDiv = document.getElementById('bmiResult');
+
+        if(w > 0 && h > 0) {
+            const bmi = (w / (h * h)).toFixed(1);
+            let category = "";
+            if(bmi < 18.5) category = "Underweight";
+            else if(bmi < 25) category = "Normal weight";
+            else category = "Overweight";
+            
+            resDiv.style.display = "block";
+            resDiv.innerText = `Your BMI: ${bmi} (${category})`;
+        }
+    }
+
+    // Medication Logic
+    function addMedication() {
+        const name = document.getElementById('medName').value;
+        const time = document.getElementById('medTime').value;
+        if(!name || !time) return;
+
+        const id = Date.now(); // Unique ID for each reminder
+        const medObj = { id, name, time, alerted: false };
+        medications.push(medObj);
+
+        renderMedications();
+        
+        document.getElementById('medName').value = '';
+        document.getElementById('medTime').value = '';
+    }
+
+    function renderMedications() {
+        const list = document.getElementById('medList');
+        list.innerHTML = '';
+        
+        medications.forEach(med => {
+            const item = document.createElement('div');
+            item.className = 'med-item';
+            item.id = `med-${med.id}`;
+            item.innerHTML = `
+                <span><strong>${med.name}</strong> at ${med.time}</span> 
+                <button onclick="stopAlarm(${med.id})" style="width:auto; padding:5px 10px; background:#94a3b8;">Dismiss</button>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    function stopAlarm(id) {
+        alarmSound.pause();
+        alarmSound.currentTime = 0;
+        // Remove from list or just mark as alerted
+        medications = medications.filter(m => m.id !== id);
+        renderMedications();
+    }
+
+    // Alarm Checker Loop
+    function checkAlarms() {
+        const now = new Date();
+        const currentTime = now.getHours().toString().padStart(2, '0') + ":" + 
+                            now.getMinutes().toString().padStart(2, '0');
+
+        medications.forEach(med => {
+            if (med.time === currentTime && !med.alerted) {
+                playAlarm(med.id);
+            }
+        });
+    }
+
+    function playAlarm(id) {
+        alarmSound.play();
+        const el = document.getElementById(`med-${id}`);
+        if(el) el.classList.add('ringing');
+        
+        // Mark as alerted so it doesn't trigger multiple times in the same minute
+        const med = medications.find(m => m.id === id);
+        if(med) med.alerted = true;
+    }
+
+    // Check for alarms every 1 second
+    setInterval(checkAlarms, 1000);
+
+    // Symptom Logic
+    function saveSymptom() {
+        const text = document.getElementById('symptomInput').value;
+        if(!text) return;
+        const log = document.getElementById('symptomLog');
+        const date = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        log.innerHTML = `<p>• [${date}] ${text}</p>` + log.innerHTML;
+        document.getElementById('symptomInput').value = '';
+    }
+</script>
+
+</body>
+</html>
